@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package YuNetServer;
+option go_package="./;external";
+
+// 8bytes with 2 string bytes in python string = 10 bytes
+message Header{
+  fixed32 streamID = 1;
+  fixed32 length = 2;
+}
+
+message Request{
+  repeated uint32 encodeJpg = 1 [packed=true];
+}
+
+message Response{
+  repeated uint32 faces = 1 [packed=true];
+}
