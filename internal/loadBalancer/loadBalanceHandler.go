@@ -1,52 +1,84 @@
 package loadbalancer
 
 import (
-	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
-	"houance/protoDemo-LoadBalance/internal/clientSide"
+	"context"
+	"errors"
 	"houance/protoDemo-LoadBalance/internal/innerData"
 
+	"go.uber.org/zap"
 )
 
 // Start Load-Balancer
 // Handle Client Registation, Server Registation, Data Forward and Backward
 func LBHandler(
-	serverRegisterChannel chan *innerData.InnerDataLB,
-	clientRegisterChannel chan *clientside.InnerDataMuxer,
+	logger *zap.Logger,
+	ctx context.Context,
+	serverRegisterChannel chan *innerData.InnerDataForward,
+	clientRegisterChannel chan *innerData.InnerDataBackward,
 	addressChannelMap map[string]chan *innerData.InnerDataTransfer,
-	idFramerMap map[uint32]*binaryframer.BinaryFramer,
-	lbChannel chan *innerData.InnerDataTransfer,
-	muxerChannel chan *innerData.InnerDataTransfer,
-)  {
+	idChannelMap map[uint32]chan *innerData.InnerDataTransfer,
+	forwardChannel chan *innerData.InnerDataTransfer,
+	backwardChannel chan *innerData.InnerDataTransfer,
+) error {
 
 	var (
-		idlb *innerData.InnerDataLB = &innerData.InnerDataLB{}
-		idmx *clientside.InnerDataMuxer = &clientside.InnerDataMuxer{}
+		idfw *innerData.InnerDataForward = &innerData.InnerDataForward{}
+		idbw *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
 		idtfFromClient *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
 		idtfFromServer *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
 		address string
-		f *binaryframer.BinaryFramer
+		err error
 	)
-	
+
+	logger.Info("Load Balance Start")
+
 	for {
 		select {
-		case idlb = <- serverRegisterChannel:
-			idlb.Handle(addressChannelMap)
-		case idmx = <- clientRegisterChannel:
-			idmx.Handle(idFramerMap)
-		case idtfFromClient = <- lbChannel:
-			address = lbAlgorithm(addressChannelMap)
+		case <- ctx.Done():
+			logger.Error("Outside Distrupt")
+			return ctx.Err()
+
+		case idfw = <- serverRegisterChannel:
+			if idfw.Channel == nil {
+				logger.Warn("Server DeRegist", zap.String("Address", idfw.Address))
+				idfw.DeRegister(addressChannelMap)
+			} else {
+				logger.Info("Server Regist", zap.String("Address", idfw.Address))
+				idfw.Register(addressChannelMap)
+			}
+
+		case idbw = <- clientRegisterChannel:
+			if idbw.Channel == nil {
+				logger.Info("Client DeRegist", zap.Uint32("StreamID", idbw.StreamID))
+				idbw.DeRegister(idChannelMap)
+			} else {
+				logger.Info("Client Regist", zap.Uint32("StreamID", idbw.StreamID))
+				idbw.Register(idChannelMap)
+			}
+
+		case idtfFromClient = <- forwardChannel:
+			address, err = lbAlgorithm(addressChannelMap)
+			if err != nil {
+				return err
+			}
 			addressChannelMap[address] <- idtfFromClient
-		case idtfFromServer = <- muxerChannel:
-			f = idFramerMap[idtfFromServer.InnerHeader.StreamID]
-			go func() {
-				f.SendInnerData(idtfFromServer)
-			}()
+			logger.Debug("Recv From Client",
+			zap.Uint32("StreamID", idtfFromClient.InnerHeader.StreamID))
+
+		case idtfFromServer = <- backwardChannel:
+			idChannelMap[idtfFromServer.InnerHeader.StreamID] <- idtfFromServer
+			logger.Debug("Recv From Server",
+			zap.Uint32("StreamID", idtfFromServer.InnerHeader.StreamID))
 		}
 	}
 
 }
 
-func lbAlgorithm(addressChannelMap map[string]chan *innerData.InnerDataTransfer) (address string) {
+func lbAlgorithm(addressChannelMap map[string]chan *innerData.InnerDataTransfer) (address string, err error) {
+
+	if len(addressChannelMap) == 0 {
+		return "nil", errors.New("no server available")
+	}
 
 	// TODO
 	// implement smarter LB Algorithm

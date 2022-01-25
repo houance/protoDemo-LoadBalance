@@ -1,59 +1,71 @@
 package internal
 
 import (
-	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
+	"context"
 	clientside "houance/protoDemo-LoadBalance/internal/clientSide"
 	"houance/protoDemo-LoadBalance/internal/innerData"
-	serverside "houance/protoDemo-LoadBalance/internal/serverSide"
 	lb "houance/protoDemo-LoadBalance/internal/loadBalancer"
+	serverside "houance/protoDemo-LoadBalance/internal/serverSide"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func StartAllComponent(listenAddress string,
 	testServerAddress string) {
 	
 	// all Channels
-	serverRegisterChannel := make(chan *innerData.InnerDataLB, 10)
-	clientRegisterChannel := make(chan *clientside.InnerDataMuxer, 10)
-	lbChannel := make(chan *innerData.InnerDataTransfer, 100)
-	muxerChannel := make(chan *innerData.InnerDataTransfer, 100)
+	serverRegisterChannel := make(chan *innerData.InnerDataForward, 10)
+	clientRegisterChannel := make(chan *innerData.InnerDataBackward, 10)
+	forwardChannel := make(chan *innerData.InnerDataTransfer, 100)
+	backwardChannel := make(chan *innerData.InnerDataTransfer, 100)
 	addressChannel := make(chan string, 10)
 
 
 	// all Map
 	addressChannelMap := make(map[string]chan *innerData.InnerDataTransfer)
-	idFramerMap := make(map[uint32]*binaryframer.BinaryFramer)
+	idChannelMap := make(map[uint32]chan *innerData.InnerDataTransfer)
 
-	// for blocking
-	blockingChannel := make(chan int)
+	// for managing all components
+	g, ctx := errgroup.WithContext(context.Background())
 
-	go func() {
-		clientside.SocketServer(
-			listenAddress,
-			lbChannel,
-			clientRegisterChannel,
-		)
-	}()
+	// logger
+	logger := zap.NewExample()
 
-	go func() {
-		serverside.HealthCheck(
-			addressChannel,
-			muxerChannel,
-			serverRegisterChannel,
-		)
-	}()
-
-	go func() {
-		lb.LBHandler(
+	g.Go(func() error {
+		return lb.LBHandler(
+			logger,
+			ctx,
 			serverRegisterChannel,
 			clientRegisterChannel,
 			addressChannelMap,
-			idFramerMap,
-			lbChannel,
-			muxerChannel,
+			idChannelMap,
+			forwardChannel,
+			backwardChannel,
 		)
-	}()
+	})
+
+	g.Go(func() error {
+		return clientside.SocketServer(
+			logger,
+			ctx,
+			listenAddress,
+			forwardChannel,
+			clientRegisterChannel,
+		)
+	})
+
+	g.Go(func() error {
+		return serverside.HealthCheck(
+			logger,
+			ctx,
+			addressChannel,
+			backwardChannel,
+			serverRegisterChannel,
+		)
+	})
 
 	addressChannel <- testServerAddress
 
-	<- blockingChannel
+	panic(g.Wait())
 }

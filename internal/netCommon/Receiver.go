@@ -1,27 +1,26 @@
-package serverside
+package netcommon
 
 import (
 	"context"
+	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
 	message "houance/protoDemo-LoadBalance/external"
-	"houance/protoDemo-LoadBalance/internal/binaryFramer"
 	"houance/protoDemo-LoadBalance/internal/innerData"
 )
 
-func ServerRecvHandler(
-	address string,
-	ctx context.Context, 
+func Receiver(
 	framer *binaryframer.BinaryFramer,
-	muxerChannel chan *innerData.InnerDataTransfer,
-	) error {
-	
+	outChannel chan *innerData.InnerDataTransfer,
+	ctx context.Context,
+) error {
+
 	var (
 		err error
+		bes *BasicErrorMessage = &BasicErrorMessage{}
 		header *message.Header = &message.Header{}
 		data []byte
 		idata  *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
-		ems *ServerSideErrorMessage = &ServerSideErrorMessage{}
 	)
-
+	
 	for {
 		select {
 		case <-ctx.Done():
@@ -29,21 +28,19 @@ func ServerRecvHandler(
 		default:
 			err = framer.RecvHeader(header)
 			if err != nil {
-				ems.Wrap(address, err)
-				framer.Close()
-				return ems
+				bes.Wrap(framer, err)
+				return bes
 			}
 
 			data, err = framer.RecvBytes(header)
 			if err != nil {
-				ems.Wrap(address, err)
-				framer.Close()
-				return ems
+				bes.Wrap(framer, err)
+				return bes
 			}
 
 			idata.InnerHeader = header
 			idata.Data = data
-			muxerChannel <- idata
+			outChannel <- idata
 		}
 	}
 }

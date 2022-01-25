@@ -29,5 +29,5 @@ func (innerData *InnerDataTransfer) Serilize() ([]byte , error) {
 	copy(innerData.serilizeData, innerData.headerData)
 	copy(innerData.serilizeData[len(innerData.headerData):], innerData.Data)
 
-	return innerData.serilizeData, innerData.err
+	return innerData.serilizeData[:innerData.length], innerData.err
 }

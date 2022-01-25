@@ -4,8 +4,10 @@ import (
 	"context"
 	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
 	"houance/protoDemo-LoadBalance/internal/innerData"
+	"houance/protoDemo-LoadBalance/internal/netCommon"
 	"net"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -13,20 +15,31 @@ import (
 // Also Keep Tracking of Server Side Goroutines
 // When failed, deRegister from Load-Balancer
 func HealthCheck(
+	logger *zap.Logger,
+	ctx context.Context,
 	addressChannel chan string,
-	muxerChannel chan *innerData.InnerDataTransfer,
-	serverRegisterChannel chan *innerData.InnerDataLB)  {
+	backwardChannel chan *innerData.InnerDataTransfer,
+	serverRegisterChannel chan *innerData.InnerDataForward) error {
 
-	var errsChannel chan error
-	idlb := &innerData.InnerDataLB{}
+
+	var (
+		errsChannel chan error
+		idfw *innerData.InnerDataForward = &innerData.InnerDataForward{}
+		ssem *ServerSideErrorMessage = &ServerSideErrorMessage{}
+	)
 
 	defer close(errsChannel)
 
 	for {
 		select {
+		case <- ctx.Done():
+			logger.Error("Outside Distrupt")
+			return ctx.Err()
+
 		case address := <- addressChannel:
 			con, err := net.Dial("tcp", address)
 			if err != nil {
+				logger.Warn("Server Dial Failed",zap.Error(err))
 				continue
 			}
 			framer := binaryframer.NewBinaryFramer(con, 5)
@@ -34,44 +47,57 @@ func HealthCheck(
 			tmpGroup := startServerSideGoroutine(
 				address,
 				framer,
-				muxerChannel,
-				serverRegisterChannel)
-	
+				backwardChannel,
+				serverRegisterChannel,
+			)
+
 			go func() {
 				errsChannel <- tmpGroup.Wait()
 			}()
+			logger.Info("Start Server Side Goroutine")
+
 		case err := <- errsChannel:
-			re,ok := err.(*ServerSideErrorMessage)
+			bes,ok := err.(*netcommon.BasicErrorMessage)
+			logger.Warn("Server Encounter Error",zap.Error(bes))
+			ssem.Bes = bes
 			if ok {
-				// idlb with address only
+				// idfw with address only
 				// for deregistation
-				idlb.Address = re.GetAddress()
-				serverRegisterChannel <- idlb
+				idfw.Address = ssem.Bes.Framer.GetRemoteAddress()
+				idfw.Channel = nil
+				serverRegisterChannel <- idfw
+
+				logger.Warn("Server Disconnect",
+				zap.String("Address", ssem.Bes.Framer.GetRemoteAddress()),
+				zap.Error(bes),
+				)
+
+				ssem.Bes.Framer.Close()
 			}
 		}
 	}
 }
 
 func startServerSideGoroutine(
-	address string,
+	address string, 
 	framer *binaryframer.BinaryFramer,
-	muxerChannel chan *innerData.InnerDataTransfer,
-	registerChannel chan *innerData.InnerDataLB) (
+	backwardChannel chan *innerData.InnerDataTransfer,
+	registerChannel chan *innerData.InnerDataForward) (
 		*errgroup.Group) {
 
-			sendChannel := make(chan *innerData.InnerDataTransfer, 100)
+			sendChannel := make(chan *innerData.InnerDataTransfer, 50)
 			
 			tmpGroup, tmpctx := errgroup.WithContext(context.Background())
 			tmpGroup.Go(func() error {
-				return ServerRecvHandler(address, tmpctx, framer, muxerChannel)
+				return netcommon.Receiver(framer, backwardChannel, tmpctx)
 			})
 			tmpGroup.Go(func() error {
-				return ServerSendHandler(address, tmpctx, framer, sendChannel)
+				return netcommon.Sender(framer, sendChannel, tmpctx)
 			})
 
-			// idlb with address and channel
+			// idfw with address and channel
 			// used for registation
-			idlb := &innerData.InnerDataLB{Address: address, Channel: sendChannel}
+			idlb := &innerData.InnerDataForward{Address: address, Channel: sendChannel}
 			registerChannel <- idlb
 
 			return tmpGroup
