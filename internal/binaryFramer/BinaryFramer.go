@@ -51,7 +51,7 @@ func (framer *BinaryFramer) RecvBytes(header *message.Header) ([]byte, error){
 	if framer.recvError != nil {
 		return nil, framer.recvError
 	}
-	return framer.dataBuf, framer.recvError
+	return framer.dataBuf[:int(header.Length)], framer.recvError
 }
 
 func (framer *BinaryFramer) SendHeader(header *message.Header) (error) {
@@ -75,6 +75,11 @@ func (framer *BinaryFramer) SendInnerData(innerData *innerData.InnerDataTransfer
 	_, framer.sendError = framer.writer.Write(framer.sendAllDataBuf)
 	return framer.sendError
 }
+
+func (framer *BinaryFramer) GetRemoteAddress() (address string) {
+	return framer.writer.RemoteAddr().String()
+}
+
 
 func (framer *BinaryFramer) Close()  {
 	framer.writer.Close()
