@@ -5,5 +5,5 @@ import (
 )
 
 func main()  {
-	internal.StartAllComponent("127.0.0.1:11000", "127.0.0.1:10000")
+	internal.StartAllComponent("127.0.0.1:11000", "127.0.0.1:12000")
 }

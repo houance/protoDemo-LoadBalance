@@ -54,7 +54,7 @@ func HealthCheck(
 			go func() {
 				errsChannel <- tmpGroup.Wait()
 			}()
-			logger.Info("Start Server Side Goroutine")
+			logger.Info("Connect Server Sucessful, Start Server Side Goroutines")
 
 		case err := <- errsChannel:
 			bes,ok := err.(*netcommon.BasicErrorMessage)

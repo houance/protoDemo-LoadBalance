@@ -19,6 +19,8 @@ func Sender(
 		bes *BasicErrorMessage = &BasicErrorMessage{}
 	)
 
+	defer close(inChannel)
+
 	for {
 		select {
 		case <-ctx.Done():

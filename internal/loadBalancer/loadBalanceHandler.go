@@ -40,20 +40,20 @@ func LBHandler(
 
 		case idfw = <- serverRegisterChannel:
 			if idfw.Channel == nil {
+				delete(addressChannelMap, idfw.Address)
 				logger.Warn("Server DeRegist", zap.String("Address", idfw.Address))
-				idfw.DeRegister(addressChannelMap)
 			} else {
+				addressChannelMap[idfw.Address] = idfw.Channel
 				logger.Info("Server Regist", zap.String("Address", idfw.Address))
-				idfw.Register(addressChannelMap)
 			}
 
 		case idbw = <- clientRegisterChannel:
 			if idbw.Channel == nil {
+				delete(idChannelMap, idbw.StreamID)
 				logger.Info("Client DeRegist", zap.Uint32("StreamID", idbw.StreamID))
-				idbw.DeRegister(idChannelMap)
 			} else {
+				idChannelMap[idbw.StreamID] = idbw.Channel
 				logger.Info("Client Regist", zap.Uint32("StreamID", idbw.StreamID))
-				idbw.Register(idChannelMap)
 			}
 
 		case idtfFromClient = <- forwardChannel:
@@ -62,13 +62,10 @@ func LBHandler(
 				return err
 			}
 			addressChannelMap[address] <- idtfFromClient
-			logger.Debug("Recv From Client",
-			zap.Uint32("StreamID", idtfFromClient.InnerHeader.StreamID))
+
 
 		case idtfFromServer = <- backwardChannel:
 			idChannelMap[idtfFromServer.InnerHeader.StreamID] <- idtfFromServer
-			logger.Debug("Recv From Server",
-			zap.Uint32("StreamID", idtfFromServer.InnerHeader.StreamID))
 		}
 	}
 
