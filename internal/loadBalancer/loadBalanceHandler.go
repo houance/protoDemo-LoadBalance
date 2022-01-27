@@ -6,6 +6,7 @@ import (
 	"houance/protoDemo-LoadBalance/internal/innerData"
 	"time"
 
+
 	"go.uber.org/zap"
 )
 
@@ -63,13 +64,18 @@ func LBHandler(
 				return err
 			}
 			addressChannelMap[address] <- idtfFromClient
-
-		case idtfFromServer = <- backwardChannel:
-			idChannelMap[idtfFromServer.InnerHeader.StreamID] <- idtfFromServer
 			logger.Info(
 				"time now",
 				zap.String("now", time.Now().String()),
 			)
+
+
+		case idtfFromServer = <- backwardChannel:
+			idChannelMap[idtfFromServer.InnerHeader.StreamID] <- idtfFromServer
+			// logger.Info(
+			// 	"time now",
+			// 	zap.String("now", time.Now().String()),
+			// )
 		}
 	}
 

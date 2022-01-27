@@ -2,16 +2,19 @@ package binaryframer
 
 import (
 	"bufio"
+	"errors"
 	message "houance/protoDemo-LoadBalance/external"
+	"houance/protoDemo-LoadBalance/internal/innerData"
 	"io"
 	"net"
-	"houance/protoDemo-LoadBalance/internal/innerData"
+
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
 type BinaryFramer struct {
 	reader *bufio.Reader
-	writer net.Conn
+	writer *net.TCPConn
 	headerBuf []byte
 	dataBuf []byte
 	recvError error
@@ -19,22 +22,29 @@ type BinaryFramer struct {
 	sendAllDataBuf []byte
 	sendHeaderBuf []byte
 	sendError error
+	logger *zap.Logger
 }
 
 const MB = 1000000
 
-func NewBinaryFramer(con net.Conn, size int) (*BinaryFramer) {
+func NewBinaryFramer(con net.Conn, size int, logger *zap.Logger) (*BinaryFramer, error) {
 
 	if size > 10{
-		return nil
+		return nil, errors.New("size must smaller than 10")
+	}
+	tcpcon := con.(*net.TCPConn)
+	err := tcpcon.SetNoDelay(true)
+	if err != nil {
+		return nil, err
 	}
 
 	return &BinaryFramer{
-		reader: bufio.NewReaderSize(con, size * MB),
+		reader: bufio.NewReaderSize(tcpcon, size * MB),
 		dataBuf: make([]byte, size * MB),
 		headerBuf: make([]byte, 10),
-		writer: con,
-	}
+		writer: tcpcon,
+		logger: logger,	
+	}, err
 }
 
 

@@ -42,7 +42,12 @@ func HealthCheck(
 				logger.Warn("Server Dial Failed",zap.Error(err))
 				continue
 			}
-			framer := binaryframer.NewBinaryFramer(con, 5)
+
+			framer, err := binaryframer.NewBinaryFramer(con, 5, logger)
+			if err != nil {
+				logger.Warn("Binary Framer Init Failed",zap.Error(err))
+				continue
+			}
 
 			tmpGroup := startServerSideGoroutine(
 				address,

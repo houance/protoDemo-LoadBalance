@@ -68,9 +68,12 @@ func SocketServer(
 				)
 				return err
 			}
-			
 
-			f = binaryframer.NewBinaryFramer(con, 5)
+			f, err = binaryframer.NewBinaryFramer(con, 5, logger)
+			if err != nil {
+				logger.Warn("Binary Framer Init Failed",zap.Error(err))
+				continue
+			}
 
 			tmpGroup := startClientSideGoroutine(
 				f,
