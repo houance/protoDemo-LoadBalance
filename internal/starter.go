@@ -11,6 +11,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// LB Middleward cost way less than 1ms
+// python client send to golang, has latency ~50 ms, with NAGLE algorithm disable
+// golang send to python server, has latency ~64 ms, need enhancement
+// python server send to golang, has latency only ~6ms, with NAGLE algorithm enable
+// golang send to python client, has latency ~20 ms, need enhancement
 func StartAllComponent(listenAddress string,
 	testServerAddress string) {
 	

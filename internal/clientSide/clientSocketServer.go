@@ -68,6 +68,8 @@ func SocketServer(
 				)
 				return err
 			}
+			
+
 			f = binaryframer.NewBinaryFramer(con, 5)
 
 			tmpGroup := startClientSideGoroutine(
