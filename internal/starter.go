@@ -12,24 +12,24 @@ import (
 )
 
 // LB Middleward cost way less than 1ms
-// python client send to golang (~80k), has latency ~30 ms,
-// with NAGLE algorithm disable, timeout = None
+// python client send to golang (~80k), has latency ~18 ms,
+// with NAGLE algorithm disable, timeout = None, sendbuf = 128k, recvbuf twice
 
-// golang send to python server(~80k), has latency ~50 ms, need enhancement
+// golang send to python server(~80k), has latency ~40 ms,
+// with NAGLE algorithm disable, sendbuf = 128k, recvbuf twice
 
-// python server send to golang(~1k), has latency only ~6ms, with NAGLE algorithm enable
+// python server send to golang(~1k), has latency ~6ms, with NAGLE algorithm enable
 
 // golang send to python client(~1k), has latency ~12 ms, need enhancement
 func StartAllComponent(listenAddress string,
 	testServerAddress string) {
-	
+
 	// all Channels
 	serverRegisterChannel := make(chan *innerData.InnerDataForward, 10)
 	clientRegisterChannel := make(chan *innerData.InnerDataBackward, 10)
 	forwardChannel := make(chan *innerData.InnerDataTransfer, 100)
 	backwardChannel := make(chan *innerData.InnerDataTransfer, 100)
 	addressChannel := make(chan string, 10)
-
 
 	// all Map
 	addressChannelMap := make(map[string]chan *innerData.InnerDataTransfer)

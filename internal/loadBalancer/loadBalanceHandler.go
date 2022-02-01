@@ -65,17 +65,17 @@ func LBHandler(
 			}
 			addressChannelMap[address] <- idtfFromClient
 			logger.Info(
-				"time now",
-				zap.String("now", time.Now().String()),
+				"Recv From PyClient, Send To PyServer",
+				zap.String("time", time.Now().String()),
 			)
 
 
 		case idtfFromServer = <- backwardChannel:
 			idChannelMap[idtfFromServer.InnerHeader.StreamID] <- idtfFromServer
-			// logger.Info(
-			// 	"time now",
-			// 	zap.String("now", time.Now().String()),
-			// )
+			logger.Info(
+				"Recv From PyServer, Send To PyClient",
+				zap.String("time", time.Now().String()),
+			)
 		}
 	}
 

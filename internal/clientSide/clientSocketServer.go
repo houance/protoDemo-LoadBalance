@@ -33,10 +33,12 @@ func SocketServer(
 		zap.Error(err),
 		)
 		return err
+	} else {
+			logger.Info("Client Server Start Listening",
+			zap.String("Address", listenAddress),
+		)
 	}
-	logger.Info("Client Server Start Listening",
-		zap.String("Address", listenAddress),
-	)
+
 
 	for {
 		select {
