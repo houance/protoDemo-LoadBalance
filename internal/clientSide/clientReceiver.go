@@ -5,11 +5,11 @@ import (
 	message "houance/protoDemo-LoadBalance/external"
 	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
 	"houance/protoDemo-LoadBalance/internal/innerData"
-	"houance/protoDemo-LoadBalance/internal/netCommon"
+	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 	"sync"
 )
 
-func Receiver(
+func ClientReceiver(
 	framer *binaryframer.BinaryFramer,
 	outChannel chan *innerData.InnerDataTransfer,
 	ctx context.Context,
@@ -18,16 +18,16 @@ func Receiver(
 ) error {
 
 	var (
-		err error
-		bes *netcommon.BasicErrorMessage = &netcommon.BasicErrorMessage{}
-		csem *ClientSideErrorMessage = &ClientSideErrorMessage{}
-		header *message.Header = &message.Header{}
-		data []byte
-		idata  *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
-		do sync.Once
+		err    error
+		bes    *netcommon.BasicErrorMessage = &netcommon.BasicErrorMessage{}
+		csem   *ClientSideErrorMessage      = &ClientSideErrorMessage{}
+		header *message.Header              = &message.Header{}
+		data   []byte
+		idtf   *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
+		do     sync.Once
 		regist *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
 	)
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -36,10 +36,10 @@ func Receiver(
 			err = framer.RecvHeader(header)
 			if err != nil {
 				bes.Wrap(framer, err)
-				if regist == nil {
-					csem.Bes = bes
+				if data == nil {
+					csem.Wrap(bes, 0)
 					return csem
-				}else {
+				} else {
 					csem.Wrap(bes, header.StreamID)
 					return csem
 				}
@@ -58,9 +58,9 @@ func Receiver(
 				return csem
 			}
 
-			idata.InnerHeader = header
-			idata.Data = data
-			outChannel <- idata
+			idtf.InnerHeader = header
+			idtf.Data = data
+			outChannel <- idtf
 		}
 	}
 }

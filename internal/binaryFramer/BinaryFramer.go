@@ -35,17 +35,13 @@ func NewBinaryFramer(con net.Conn, size int, logger *zap.Logger) (*BinaryFramer,
 		return nil, errors.New("size must smaller than 10")
 	}
 	tcpcon := con.(*net.TCPConn)
+
 	err = tcpcon.SetNoDelay(true)
 	if err != nil {
 		return nil, err
 	}
 
-	err = tcpcon.SetWriteBuffer(128000)
-	if err != nil {
-		return nil, err
-	}
-
-	err = tcpcon.SetReadBuffer(256000)
+	err = tcpcon.SetLinger(0)
 	if err != nil {
 		return nil, err
 	}

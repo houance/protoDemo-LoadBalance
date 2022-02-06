@@ -12,15 +12,8 @@ import (
 )
 
 // LB Middleward cost way less than 1ms
-// python client send to golang (~80k), has latency ~18 ms,
-// with NAGLE algorithm disable, timeout = None, sendbuf = 128k, recvbuf twice
-
-// golang send to python server(~80k), has latency ~40 ms,
-// with NAGLE algorithm disable, sendbuf = 128k, recvbuf twice
-
-// python server send to golang(~1k), has latency ~6ms, with NAGLE algorithm enable
-
-// golang send to python client(~1k), has latency ~12 ms, need enhancement
+// newest change, use aliyun inter connection setting(like localhost),
+// latency down to 50 ms
 func StartAllComponent(listenAddress string,
 	testServerAddress string) {
 

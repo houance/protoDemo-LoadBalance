@@ -1,12 +1,13 @@
-package netcommon
+package clientside
 
 import (
 	"context"
 	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
 	"houance/protoDemo-LoadBalance/internal/innerData"
+	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 )
 
-func Sender(
+func ClientSender(
 	framer *binaryframer.BinaryFramer,
 	inChannel chan *innerData.InnerDataTransfer,
 	ctx context.Context,
@@ -15,7 +16,8 @@ func Sender(
 	var (
 		err  error
 		idtf *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
-		bes  *BasicErrorMessage           = &BasicErrorMessage{}
+		bes  *netcommon.BasicErrorMessage = &netcommon.BasicErrorMessage{}
+		csem *ClientSideErrorMessage      = &ClientSideErrorMessage{}
 	)
 
 	for {
@@ -26,7 +28,8 @@ func Sender(
 			err = framer.SendInnerData(idtf)
 			if err != nil {
 				bes.Wrap(framer, err)
-				return bes
+				csem.Wrap(bes, idtf.InnerHeader.StreamID)
+				return csem
 			}
 		}
 	}

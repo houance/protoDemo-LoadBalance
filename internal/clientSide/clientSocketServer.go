@@ -4,7 +4,6 @@ import (
 	"context"
 	binaryframer "houance/protoDemo-LoadBalance/internal/binaryFramer"
 	"houance/protoDemo-LoadBalance/internal/innerData"
-	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 	"net"
 
 	"go.uber.org/zap"
@@ -19,61 +18,66 @@ func SocketServer(
 	clientRegisterChannel chan *innerData.InnerDataBackward) error {
 
 	var (
-		errsChannel chan error
-		f *binaryframer.BinaryFramer
-		err error
-		idbw *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
+		errsChannel         chan error    = make(chan error, 10)
+		acceptErrorsChannel chan error    = make(chan error, 10)
+		connectionsChannel  chan net.Conn = make(chan net.Conn, 10)
+		f                   *binaryframer.BinaryFramer
+		err                 error
+		idbw                *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
+		con                 net.Conn
+		ls                  net.Listener
 	)
 
 	defer close(errsChannel)
+	defer close(acceptErrorsChannel)
+	defer close(connectionsChannel)
 
-	ls, err := net.Listen("tcp", listenAddress)
+	ls, err = net.Listen("tcp", listenAddress)
 	if err != nil {
 		logger.Error("Client Socket Server Listen Failed",
-		zap.Error(err),
+			zap.Error(err),
 		)
 		return err
 	} else {
-			logger.Info("Client Server Start Listening",
+		logger.Info("Client Server Start Listening",
 			zap.String("Address", listenAddress),
 		)
+		go func() {
+			AcceptGoroutine(
+				ls,
+				connectionsChannel,
+				acceptErrorsChannel,
+			)
+		}()
 	}
-
+	defer ls.Close()
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Warn("Outside Distrupt")
+			logger.Error("Outside Distrupt, Return From ClientSocketServer")
 			return ctx.Err()
 
-		case err = <- errsChannel:
-			re,ok := err.(*ClientSideErrorMessage)
+		case err = <-errsChannel:
+			csem, ok := err.(*ClientSideErrorMessage)
 			if ok {
 				// idbw with StreamID only
 				// for deregistation
-				idbw.StreamID = re.StreamID
+				idbw.StreamID = csem.StreamID
 				idbw.Channel = nil
 				clientRegisterChannel <- idbw
 
 				logger.Info("Client Disconnect",
-				zap.String("Address", re.Bes.Framer.GetRemoteAddress()),
-				zap.Error(re),
+					zap.Uint32("Client ID", csem.StreamID),
+					zap.Error(csem),
 				)
-				re.Bes.Framer.Close()
+				csem.Bes.Framer.Close()
 			}
 
-		default:
-			con, err := ls.Accept()
-			if err != nil {
-				logger.Error("Client Socket Server Accept() Method Error",
-				zap.Error(err),
-				)
-				return err
-			}
-
+		case con = <-connectionsChannel:
 			f, err = binaryframer.NewBinaryFramer(con, 5, logger)
 			if err != nil {
-				logger.Warn("Binary Framer Init Failed",zap.Error(err))
+				logger.Warn("Binary Framer Init Failed", zap.Error(err))
 				continue
 			}
 
@@ -85,27 +89,45 @@ func SocketServer(
 			go func() {
 				errsChannel <- tmpGroup.Wait()
 			}()
-			logger.Info("Start Client Goroutine")
+			logger.Info("Client Connect, Start Client Goroutine")
+
+		case err = <-acceptErrorsChannel:
+			logger.Error("Client Socket Server Accept() Method Error",
+				zap.Error(err),
+			)
 		}
 	}
+}
 
+func AcceptGoroutine(listener net.Listener,
+	connectionsChannel chan net.Conn,
+	acceptErrorsChannel chan error) {
+
+	for {
+		con, err := listener.Accept()
+		if err != nil {
+			acceptErrorsChannel <- err
+			continue
+		} else {
+			connectionsChannel <- con
+		}
+	}
 }
 
 func startClientSideGoroutine(
 	framer *binaryframer.BinaryFramer,
 	forwardChannel chan *innerData.InnerDataTransfer,
-	registerChannel chan *innerData.InnerDataBackward) (
-		*errgroup.Group) {
+	registerChannel chan *innerData.InnerDataBackward) *errgroup.Group {
 
-			sendChannel := make(chan *innerData.InnerDataTransfer, 50)
+	sendChannel := make(chan *innerData.InnerDataTransfer, 50)
 
-			tmpGroup, tmpctx := errgroup.WithContext(context.Background())
-			tmpGroup.Go(func() error {
-				return Receiver(framer, forwardChannel, tmpctx, sendChannel, registerChannel)
-			})
-			tmpGroup.Go(func() error {
-				return netcommon.Sender(framer, sendChannel, tmpctx)
-			})
+	tmpGroup, tmpctx := errgroup.WithContext(context.Background())
+	tmpGroup.Go(func() error {
+		return ClientReceiver(framer, forwardChannel, tmpctx, sendChannel, registerChannel)
+	})
+	tmpGroup.Go(func() error {
+		return ClientSender(framer, sendChannel, tmpctx)
+	})
 
-			return tmpGroup
+	return tmpGroup
 }
