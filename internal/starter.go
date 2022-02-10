@@ -5,6 +5,7 @@ import (
 	clientside "houance/protoDemo-LoadBalance/internal/clientSide"
 	"houance/protoDemo-LoadBalance/internal/innerData"
 	lb "houance/protoDemo-LoadBalance/internal/loadBalancer"
+	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 	serverside "houance/protoDemo-LoadBalance/internal/serverSide"
 
 	"go.uber.org/zap"
@@ -23,6 +24,7 @@ func StartAllComponent(listenAddress string,
 	forwardChannel := make(chan *innerData.InnerDataTransfer, 100)
 	backwardChannel := make(chan *innerData.InnerDataTransfer, 100)
 	addressChannel := make(chan string, 10)
+	channelCounter := netcommon.NewChannelCounter(100)
 
 	// all Map
 	addressChannelMap := make(map[string]chan *innerData.InnerDataTransfer)
@@ -54,6 +56,7 @@ func StartAllComponent(listenAddress string,
 			listenAddress,
 			forwardChannel,
 			clientRegisterChannel,
+			channelCounter,
 		)
 	})
 

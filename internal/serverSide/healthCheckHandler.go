@@ -68,7 +68,6 @@ func HealthCheck(
 				// idfw with address only
 				// for deregistation
 				idfw.Address = ssem.Bes.Framer.GetRemoteAddress()
-				idfw.Channel = nil
 				serverRegisterChannel <- idfw
 
 				logger.Warn("Server Disconnect",

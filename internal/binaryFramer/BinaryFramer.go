@@ -78,7 +78,7 @@ func (framer *BinaryFramer) SendHeader(header *message.Header) error {
 		return framer.sendError
 	}
 
-	_, framer.sendError = framer.writer.Write(framer.headerBuf)
+	_, framer.sendError = framer.writer.Write(framer.sendHeaderBuf)
 	return framer.sendError
 }
 

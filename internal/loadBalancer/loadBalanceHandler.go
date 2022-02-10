@@ -5,8 +5,6 @@ import (
 	"errors"
 	"houance/protoDemo-LoadBalance/internal/innerData"
 
-	// "time"
-
 	"go.uber.org/zap"
 )
 
@@ -24,8 +22,6 @@ func LBHandler(
 ) error {
 
 	var (
-		idfw           *innerData.InnerDataForward  = &innerData.InnerDataForward{}
-		idbw           *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
 		idtfFromClient *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
 		idtfFromServer *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
 		address        string
@@ -40,7 +36,7 @@ func LBHandler(
 			logger.Error("Outside Distrupt, Return From LB")
 			return ctx.Err()
 
-		case idfw = <-serverRegisterChannel:
+		case idfw := <-serverRegisterChannel:
 			if idfw.Channel == nil {
 				close(addressChannelMap[idfw.Address])
 				delete(addressChannelMap, idfw.Address)
@@ -50,7 +46,7 @@ func LBHandler(
 				logger.Info("Server Regist", zap.String("Address", idfw.Address))
 			}
 
-		case idbw = <-clientRegisterChannel:
+		case idbw := <-clientRegisterChannel:
 			if idbw.Channel == nil {
 				close(idChannelMap[idbw.StreamID])
 				delete(idChannelMap, idbw.StreamID)
@@ -73,7 +69,7 @@ func LBHandler(
 				idChannelMap[idtfFromServer.InnerHeader.StreamID] <- idtfFromServer
 
 			default:
-				continue
+				break
 			}
 		}
 	}
