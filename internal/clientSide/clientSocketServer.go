@@ -6,6 +6,7 @@ import (
 	"houance/protoDemo-LoadBalance/internal/innerData"
 	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 	"net"
+	"strconv"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -14,20 +15,23 @@ import (
 func SocketServer(
 	logger *zap.Logger,
 	ctx context.Context,
-	listenAddress string,
+	listenPort int,
 	forwardChannel chan *innerData.InnerDataTransfer,
 	clientRegisterChannel chan *innerData.InnerDataBackward,
-	counter *netcommon.ChannelCounter) error {
+	counter *netcommon.ChannelCounter,
+	infoChannelSize int,
+	dataChannelSize int) error {
 
 	var (
-		errsChannel         chan error    = make(chan error, 10)
-		acceptErrorsChannel chan error    = make(chan error, 10)
-		connectionsChannel  chan net.Conn = make(chan net.Conn, 10)
+		errsChannel         chan error    = make(chan error, infoChannelSize)
+		acceptErrorsChannel chan error    = make(chan error, infoChannelSize)
+		connectionsChannel  chan net.Conn = make(chan net.Conn, infoChannelSize)
 		f                   *binaryframer.BinaryFramer
 		err                 error
 		idbw                *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
 		con                 net.Conn
 		ls                  net.Listener
+		listenAddress       string = "0.0.0.0:" + strconv.Itoa(listenPort)
 	)
 
 	defer close(errsChannel)
@@ -94,6 +98,7 @@ func SocketServer(
 				forwardChannel,
 				clientRegisterChannel,
 				id,
+				dataChannelSize,
 			)
 
 			go func() {
@@ -128,9 +133,10 @@ func startClientSideGoroutine(
 	framer *binaryframer.BinaryFramer,
 	forwardChannel chan *innerData.InnerDataTransfer,
 	registerChannel chan *innerData.InnerDataBackward,
-	id uint32) *errgroup.Group {
+	id uint32,
+	dataChannelSize int) *errgroup.Group {
 
-	sendChannel := make(chan *innerData.InnerDataTransfer, 50)
+	sendChannel := make(chan *innerData.InnerDataTransfer, dataChannelSize)
 
 	tmpGroup, tmpctx := errgroup.WithContext(context.Background())
 	tmpGroup.Go(func() error {

@@ -14,15 +14,18 @@ import (
 // Start ServerSide Goroutines and Register to The Load-Balancer
 // Also Keep Tracking of Server Side Goroutines
 // When failed, deRegister from Load-Balancer
-func HealthCheck(
+func ServersManager(
 	logger *zap.Logger,
 	ctx context.Context,
 	addressChannel chan string,
 	backwardChannel chan *innerData.InnerDataTransfer,
-	serverRegisterChannel chan *innerData.InnerDataForward) error {
+	serverRegisterChannel chan *innerData.InnerDataForward,
+	infoChannelSize int,
+	dataChannelSize int,
+) error {
 
 	var (
-		errsChannel chan error                  = make(chan error, 10)
+		errsChannel chan error                  = make(chan error, infoChannelSize)
 		idfw        *innerData.InnerDataForward = &innerData.InnerDataForward{}
 		ssem        *ServerSideErrorMessage     = &ServerSideErrorMessage{}
 	)
@@ -54,6 +57,7 @@ func HealthCheck(
 				backwardChannel,
 				serverRegisterChannel,
 				logger,
+				dataChannelSize,
 			)
 
 			go func() {
@@ -86,9 +90,10 @@ func startServerSideGoroutine(
 	framer *binaryframer.BinaryFramer,
 	backwardChannel chan *innerData.InnerDataTransfer,
 	registerChannel chan *innerData.InnerDataForward,
-	logger *zap.Logger) *errgroup.Group {
+	logger *zap.Logger,
+	dataChannelSize int) *errgroup.Group {
 
-	sendChannel := make(chan *innerData.InnerDataTransfer, 50)
+	sendChannel := make(chan *innerData.InnerDataTransfer, dataChannelSize)
 
 	tmpGroup, tmpctx := errgroup.WithContext(context.Background())
 	tmpGroup.Go(func() error {

@@ -1,0 +1,24 @@
+network:
+  ip: "172.17.129.202"
+  lbPort: 11000
+  healthPort: 11001
+  prometheusPort: 11002
+  healthCheckPath: "/health"
+
+consul:
+  check:
+    interval: "10s"
+    timeout: "1s"
+    httpHealthCheckUrl: "http://172.17.129.202:11001/health"
+  server:
+    ip: "172.17.129.202"
+    port: 8500
+  tags: "server"
+  filter: "server in Tags"
+  
+
+size:
+  infoChannelSize: 10
+  dataChannelSize: 50
+  lbChannelSize: 100
+  connectionChannelSize: 20
