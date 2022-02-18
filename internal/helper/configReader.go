@@ -11,6 +11,7 @@ type Network struct {
 	LBPort          int    `yaml:"lbPort"`
 	HealthPort      int    `yaml:"healthPort"`
 	PrometheusPort  int    `yaml:"prometheusPort"`
+	TraceServerPort int    `yaml:"traceServerPort"`
 	HealthCheckPath string `yaml:"healthCheckPath"`
 }
 
@@ -35,10 +36,15 @@ type Size struct {
 	ConnectionChannelSize int `yaml:"connectionChannelSize"`
 }
 
+type Trace struct {
+	BatchSize int `yaml:"batchSize"`
+}
+
 type Config struct {
 	N Network `yaml:"network"`
 	C Consul  `yaml:"consul"`
 	S Size    `yaml:"size"`
+	T Trace   `yaml:"trace"`
 }
 
 func ReadConf(filename string) (c *Config, err error) {

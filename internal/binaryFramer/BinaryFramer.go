@@ -13,12 +13,16 @@ import (
 )
 
 type BinaryFramer struct {
-	reader         *bufio.Reader
-	writer         *net.TCPConn
-	headerBuf      []byte
-	dataBuf        []byte
-	recvError      error
-	n              int
+	reader *bufio.Reader
+	writer *net.TCPConn
+
+	recvHeaderBuf []byte
+	recvPrefixBuf []byte
+	recvDataBuf   []byte
+	recvSpanBuf   []byte
+
+	recvError error
+
 	sendAllDataBuf []byte
 	sendHeaderBuf  []byte
 	sendError      error
@@ -26,6 +30,10 @@ type BinaryFramer struct {
 }
 
 const MB = 1000000
+
+const headerLength = 25
+
+const prefixLengthSize = 5
 
 func NewBinaryFramer(con net.Conn, size int, logger *zap.Logger) (*BinaryFramer, error) {
 
@@ -47,28 +55,52 @@ func NewBinaryFramer(con net.Conn, size int, logger *zap.Logger) (*BinaryFramer,
 	}
 
 	return &BinaryFramer{
-		reader:    bufio.NewReaderSize(tcpcon, size*MB),
-		dataBuf:   make([]byte, size*MB),
-		headerBuf: make([]byte, 10),
-		writer:    tcpcon,
-		logger:    logger,
+		reader:        bufio.NewReaderSize(tcpcon, size*MB),
+		recvDataBuf:   make([]byte, size*MB),
+		recvSpanBuf:   make([]byte, size*MB),
+		recvHeaderBuf: make([]byte, headerLength),
+		recvPrefixBuf: make([]byte, prefixLengthSize),
+		writer:        tcpcon,
+		logger:        logger,
 	}, nil
 }
 
 func (framer *BinaryFramer) RecvHeader(header *message.Header) error {
-	framer.n, framer.recvError = io.ReadAtLeast(framer.reader, framer.headerBuf, 10)
+	_, framer.recvError = io.ReadAtLeast(framer.reader, framer.recvHeaderBuf, headerLength)
 	if framer.recvError != nil {
 		return framer.recvError
 	}
-	return proto.Unmarshal(framer.headerBuf, header)
+	return proto.Unmarshal(framer.recvHeaderBuf, header)
 }
 
 func (framer *BinaryFramer) RecvBytes(header *message.Header) ([]byte, error) {
-	framer.n, framer.recvError = io.ReadAtLeast(framer.reader, framer.dataBuf, int(header.Length))
+	_, framer.recvError = io.ReadAtLeast(framer.reader, framer.recvDataBuf, int(header.Length))
 	if framer.recvError != nil {
 		return nil, framer.recvError
 	}
-	return framer.dataBuf[:int(header.Length)], framer.recvError
+	return framer.recvDataBuf[:int(header.Length)], framer.recvError
+}
+
+func (framer *BinaryFramer) RecvSpan(
+	prefixLength *message.PrefixLength,
+	spanInfo *message.SpanInfo) error {
+
+	_, framer.recvError = io.ReadAtLeast(framer.reader, framer.recvPrefixBuf, prefixLengthSize)
+	if framer.recvError != nil {
+		return framer.recvError
+	}
+
+	framer.recvError = proto.Unmarshal(framer.recvPrefixBuf, prefixLength)
+	if framer.recvError != nil {
+		return framer.recvError
+	}
+
+	_, framer.recvError = io.ReadAtLeast(framer.reader, framer.recvSpanBuf, int(prefixLength.Length))
+	if framer.recvError != nil {
+		return framer.recvError
+	}
+
+	return proto.Unmarshal(framer.recvSpanBuf, spanInfo)
 }
 
 func (framer *BinaryFramer) SendHeader(header *message.Header) error {
@@ -82,9 +114,20 @@ func (framer *BinaryFramer) SendHeader(header *message.Header) error {
 	return framer.sendError
 }
 
-func (framer *BinaryFramer) SendInnerData(innerData *innerData.InnerDataTransfer) error {
+func (framer *BinaryFramer) SendInnerData(innerData *innerData.DataTransfer) error {
 
 	framer.sendAllDataBuf, framer.sendError = innerData.Serilize()
+	if framer.sendError != nil {
+		return framer.sendError
+	}
+
+	_, framer.sendError = framer.writer.Write(framer.sendAllDataBuf)
+	return framer.sendError
+}
+
+func (framer *BinaryFramer) SendDataTrace(dataTrace *innerData.DataTrace) error {
+
+	framer.sendAllDataBuf, framer.sendError = dataTrace.Serilize()
 	if framer.sendError != nil {
 		return framer.sendError
 	}

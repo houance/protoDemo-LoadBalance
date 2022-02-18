@@ -5,7 +5,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type InnerDataTransfer struct {
+type DataTransfer struct {
 	InnerHeader *message.Header
 	Data []byte
 	serilizeData []byte
@@ -14,7 +14,7 @@ type InnerDataTransfer struct {
 	err error
 }
 
-func (innerData *InnerDataTransfer) Serilize() ([]byte , error) {
+func (innerData *DataTransfer) Serilize() ([]byte , error) {
 	innerData.InnerHeader.Length = uint32(len(innerData.Data))
 	innerData.headerData, innerData.err= proto.Marshal(innerData.InnerHeader)
 	if innerData.err != nil {

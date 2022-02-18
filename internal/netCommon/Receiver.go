@@ -9,7 +9,7 @@ import (
 
 func Receiver(
 	framer *binaryframer.BinaryFramer,
-	outChannel chan *innerData.InnerDataTransfer,
+	outChannel chan *innerData.DataTransfer,
 	ctx context.Context,
 ) error {
 
@@ -18,7 +18,7 @@ func Receiver(
 		bes *BasicErrorMessage = &BasicErrorMessage{}
 		header *message.Header = &message.Header{}
 		data []byte
-		idata  *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
+		idata  *innerData.DataTransfer = &innerData.DataTransfer{}
 	)
 	
 	for {

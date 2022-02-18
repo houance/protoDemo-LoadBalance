@@ -10,7 +10,7 @@ import (
 
 func ClientReceiver(
 	framer *binaryframer.BinaryFramer,
-	outChannel chan *innerData.InnerDataTransfer,
+	outChannel chan *innerData.DataTransfer,
 	ctx context.Context,
 ) error {
 
@@ -20,7 +20,7 @@ func ClientReceiver(
 		csem   *ClientSideErrorMessage      = &ClientSideErrorMessage{}
 		header *message.Header              = &message.Header{}
 		data   []byte
-		idtf   *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
+		idtf   *innerData.DataTransfer = &innerData.DataTransfer{}
 	)
 
 	for {

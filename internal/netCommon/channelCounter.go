@@ -8,7 +8,8 @@ type ChannelCounter struct {
 
 func NewChannelCounter(size int) *ChannelCounter {
 	tmp := make(chan uint32, size)
-	for i := 1; i < size; i++ {
+	size = size + 1
+	for i := 2; i < size; i++ {
 		tmp <- uint32(i)
 	}
 	return &ChannelCounter{counter: tmp}

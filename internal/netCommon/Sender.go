@@ -8,13 +8,13 @@ import (
 
 func Sender(
 	framer *binaryframer.BinaryFramer,
-	inChannel chan *innerData.InnerDataTransfer,
+	inChannel chan *innerData.DataTransfer,
 	ctx context.Context,
 ) error {
 
 	var (
 		err  error
-		idtf *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
+		idtf *innerData.DataTransfer = &innerData.DataTransfer{}
 		bes  *BasicErrorMessage           = &BasicErrorMessage{}
 	)
 

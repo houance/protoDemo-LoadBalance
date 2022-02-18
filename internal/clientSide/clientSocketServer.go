@@ -16,8 +16,8 @@ func SocketServer(
 	logger *zap.Logger,
 	ctx context.Context,
 	listenPort int,
-	forwardChannel chan *innerData.InnerDataTransfer,
-	clientRegisterChannel chan *innerData.InnerDataBackward,
+	forwardChannel chan *innerData.DataTransfer,
+	clientRegisterChannel chan *innerData.DataBackward,
 	counter *netcommon.ChannelCounter,
 	infoChannelSize int,
 	dataChannelSize int) error {
@@ -28,7 +28,7 @@ func SocketServer(
 		connectionsChannel  chan net.Conn = make(chan net.Conn, infoChannelSize)
 		f                   *binaryframer.BinaryFramer
 		err                 error
-		idbw                *innerData.InnerDataBackward = &innerData.InnerDataBackward{}
+		idbw                *innerData.DataBackward = &innerData.DataBackward{}
 		con                 net.Conn
 		ls                  net.Listener
 		listenAddress       string = "0.0.0.0:" + strconv.Itoa(listenPort)
@@ -131,12 +131,12 @@ func AcceptGoroutine(listener net.Listener,
 
 func startClientSideGoroutine(
 	framer *binaryframer.BinaryFramer,
-	forwardChannel chan *innerData.InnerDataTransfer,
-	registerChannel chan *innerData.InnerDataBackward,
+	forwardChannel chan *innerData.DataTransfer,
+	registerChannel chan *innerData.DataBackward,
 	id uint32,
 	dataChannelSize int) *errgroup.Group {
 
-	sendChannel := make(chan *innerData.InnerDataTransfer, dataChannelSize)
+	sendChannel := make(chan *innerData.DataTransfer, dataChannelSize)
 
 	tmpGroup, tmpctx := errgroup.WithContext(context.Background())
 	tmpGroup.Go(func() error {
@@ -146,7 +146,7 @@ func startClientSideGoroutine(
 		return ClientSender(framer, sendChannel, tmpctx, id)
 	})
 
-	idbw := &innerData.InnerDataBackward{StreamID: id, Channel: sendChannel}
+	idbw := &innerData.DataBackward{StreamID: id, Channel: sendChannel}
 	registerChannel <- idbw
 
 	return tmpGroup

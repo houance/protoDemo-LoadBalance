@@ -18,15 +18,15 @@ func ServersManager(
 	logger *zap.Logger,
 	ctx context.Context,
 	addressChannel chan string,
-	backwardChannel chan *innerData.InnerDataTransfer,
-	serverRegisterChannel chan *innerData.InnerDataForward,
+	backwardChannel chan *innerData.DataTransfer,
+	serverRegisterChannel chan *innerData.DataForward,
 	infoChannelSize int,
 	dataChannelSize int,
 ) error {
 
 	var (
 		errsChannel chan error                  = make(chan error, infoChannelSize)
-		idfw        *innerData.InnerDataForward = &innerData.InnerDataForward{}
+		idfw        *innerData.DataForward = &innerData.DataForward{}
 		ssem        *ServerSideErrorMessage     = &ServerSideErrorMessage{}
 	)
 
@@ -88,12 +88,12 @@ func ServersManager(
 func startServerSideGoroutine(
 	address string,
 	framer *binaryframer.BinaryFramer,
-	backwardChannel chan *innerData.InnerDataTransfer,
-	registerChannel chan *innerData.InnerDataForward,
+	backwardChannel chan *innerData.DataTransfer,
+	registerChannel chan *innerData.DataForward,
 	logger *zap.Logger,
 	dataChannelSize int) *errgroup.Group {
 
-	sendChannel := make(chan *innerData.InnerDataTransfer, dataChannelSize)
+	sendChannel := make(chan *innerData.DataTransfer, dataChannelSize)
 
 	tmpGroup, tmpctx := errgroup.WithContext(context.Background())
 	tmpGroup.Go(func() error {
@@ -105,7 +105,7 @@ func startServerSideGoroutine(
 
 	// idfw with address and channel
 	// used for registation
-	idfw := &innerData.InnerDataForward{Address: address, Channel: sendChannel}
+	idfw := &innerData.DataForward{Address: address, Channel: sendChannel}
 	registerChannel <- idfw
 
 	return tmpGroup

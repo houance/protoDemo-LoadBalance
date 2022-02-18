@@ -65,7 +65,7 @@ func HealthCheckHttpServer(healthCheckPort int, healthPath string) error {
 
 func ScheduleHealthCheck(
 	ctx context.Context,
-	addressChannelMap map[string]chan *innerData.InnerDataTransfer,
+	addressChannelMap map[string]chan *innerData.DataTransfer,
 	addressChannel chan string,
 	filter string) (err error) {
 

@@ -9,6 +9,8 @@ import (
 	lb "houance/protoDemo-LoadBalance/internal/loadBalancer"
 	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 	serverside "houance/protoDemo-LoadBalance/internal/serverSide"
+	"houance/protoDemo-LoadBalance/internal/trace"
+	"net"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -26,16 +28,25 @@ func StartAllComponent() {
 	}
 
 	// all Channels
-	serverRegisterChannel := make(chan *innerData.InnerDataForward, config.S.InfoChannelSize)
-	clientRegisterChannel := make(chan *innerData.InnerDataBackward, config.S.InfoChannelSize)
+	serverRegisterChannel := make(chan *innerData.DataForward, config.S.InfoChannelSize)
+	clientRegisterChannel := make(chan *innerData.DataBackward, config.S.InfoChannelSize)
 	addressChannel := make(chan string, config.S.InfoChannelSize)
-	forwardChannel := make(chan *innerData.InnerDataTransfer, config.S.LBChannelSize)
-	backwardChannel := make(chan *innerData.InnerDataTransfer, config.S.LBChannelSize)
+	forwardChannel := make(chan *innerData.DataTransfer, config.S.LBChannelSize)
+	backwardChannel := make(chan *innerData.DataTransfer, config.S.LBChannelSize)
 	channelCounter := netcommon.NewChannelCounter(config.S.ConnectionChannelSize)
 
 	// all Map
-	addressChannelMap := make(map[string]chan *innerData.InnerDataTransfer)
-	idChannelMap := make(map[uint32]chan *innerData.InnerDataTransfer)
+	addressChannelMap := make(map[string]chan *innerData.DataTransfer)
+	idChannelMap := make(map[uint32]chan *innerData.DataTransfer)
+
+	// helper
+	randomGenerator := helper.NewRandomGenerator(
+		2,
+		uint32(config.S.ConnectionChannelSize))
+	batchProcess := trace.NewBatchProcess(
+		config.T.BatchSize,
+		&net.IPConn{},
+	)
 
 	// for managing all components
 	g, ctx := errgroup.WithContext(context.Background())
@@ -86,6 +97,8 @@ func StartAllComponent() {
 			idChannelMap,
 			forwardChannel,
 			backwardChannel,
+			randomGenerator,
+			batchProcess,
 		)
 	})
 

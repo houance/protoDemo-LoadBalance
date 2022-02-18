@@ -3,6 +3,7 @@ network:
   lbPort: 11000
   healthPort: 11001
   prometheusPort: 11002
+  traceServerPort: 11003
   healthCheckPath: "/health"
 
 consul:
@@ -13,7 +14,7 @@ consul:
   server:
     ip: "172.17.129.202"
     port: 8500
-  tags: "server"
+  tags: "lb"
   filter: "server in Tags"
   
 
@@ -22,3 +23,6 @@ size:
   dataChannelSize: 50
   lbChannelSize: 100
   connectionChannelSize: 20
+
+trace:
+  batchSize: 100

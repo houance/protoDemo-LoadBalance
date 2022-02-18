@@ -3,10 +3,13 @@ syntax = "proto3";
 package YuNetServer;
 option go_package="./;external";
 
-// 8bytes with 2 string bytes in python string = 10 bytes
+// 20bytes with 5 string bytes for fixed type = 25 bytes
 message Header{
   fixed32 streamID = 1;
   fixed32 length = 2;
+  fixed32 traceID = 3;
+  fixed32 parentID = 4;
+  fixed32 spanID = 5;
 }
 
 message Request{
@@ -15,4 +18,20 @@ message Request{
 
 message Response{
   repeated uint32 faces = 1 [packed=true];
+}
+
+// 4 bytes with 1 fixed type = 5 bytes
+message PrefixLength{
+  fixed32 length = 1;
+}
+
+message SpanInfo{
+  uint32 traceID = 1;
+  uint32 parentID = 2;
+  uint32 spanID = 3;
+  string status = 4;
+  int64  startTime = 5;
+  int64 endTime = 6;
+  uint32 streamID = 7;
+  string name = 8;
 }

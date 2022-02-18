@@ -10,14 +10,14 @@ import (
 
 func ClientSender(
 	framer *binaryframer.BinaryFramer,
-	inChannel chan *innerData.InnerDataTransfer,
+	inChannel chan *innerData.DataTransfer,
 	ctx context.Context,
 	id uint32,
 ) error {
 
 	var (
 		err    error
-		idtf   *innerData.InnerDataTransfer = &innerData.InnerDataTransfer{}
+		idtf   *innerData.DataTransfer = &innerData.DataTransfer{}
 		bes    *netcommon.BasicErrorMessage = &netcommon.BasicErrorMessage{}
 		csem   *ClientSideErrorMessage      = &ClientSideErrorMessage{}
 		header *message.Header              = &message.Header{StreamID: id, Length: id}
