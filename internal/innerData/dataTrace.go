@@ -39,3 +39,17 @@ func (dt *DataTrace) Serilize() ([]byte, error) {
 	return dt.allByteData[:dt.allLength], nil
 
 }
+
+type DataTraces []*DataTrace
+
+func (p DataTraces) Len() int {
+	return len(p)
+}
+
+func (p DataTraces) Less(i, j int) bool {
+	return p[i].Span.StartTime < p[j].Span.StartTime
+}
+
+func (p DataTraces) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"houance/protoDemo-LoadBalance/external"
 	clientside "houance/protoDemo-LoadBalance/internal/clientSide"
 	consultool "houance/protoDemo-LoadBalance/internal/consulTool"
 	"houance/protoDemo-LoadBalance/internal/helper"
@@ -11,6 +12,8 @@ import (
 	serverside "houance/protoDemo-LoadBalance/internal/serverSide"
 	"houance/protoDemo-LoadBalance/internal/trace"
 	"net"
+	"strconv"
+	"sync"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -27,6 +30,12 @@ func StartAllComponent() {
 		panic(err)
 	}
 
+	// dial trace server
+	con, err := net.Dial("tcp", "0.0.0.0:"+strconv.Itoa(config.N.TraceServerPort))
+	if err != nil {
+		panic(err)
+	}
+
 	// all Channels
 	serverRegisterChannel := make(chan *innerData.DataForward, config.S.InfoChannelSize)
 	clientRegisterChannel := make(chan *innerData.DataBackward, config.S.InfoChannelSize)
@@ -34,6 +43,29 @@ func StartAllComponent() {
 	forwardChannel := make(chan *innerData.DataTransfer, config.S.LBChannelSize)
 	backwardChannel := make(chan *innerData.DataTransfer, config.S.LBChannelSize)
 	channelCounter := netcommon.NewChannelCounter(config.S.ConnectionChannelSize)
+	traceChannel := make(chan *innerData.DataTrace, config.S.LBChannelSize)
+
+	// all Pools
+	spanInfoPool := &sync.Pool{
+		New: func() interface{} {
+			return &external.SpanInfo{}
+		},
+	}
+	prefixLengthPool := &sync.Pool{
+		New: func() interface{} {
+			return &external.PrefixLength{}
+		},
+	}
+	dataTracePool := &sync.Pool{
+		New: func() interface{} {
+			return &innerData.DataTrace{}
+		},
+	}
+	traceAggregationPool := &sync.Pool{
+		New: func() interface{} {
+			return &innerData.TraceAggregation{}
+		},
+	}
 
 	// all Map
 	addressChannelMap := make(map[string]chan *innerData.DataTransfer)
@@ -45,7 +77,7 @@ func StartAllComponent() {
 		uint32(config.S.ConnectionChannelSize))
 	batchProcess := trace.NewBatchProcess(
 		config.T.BatchSize,
-		&net.IPConn{},
+		con,
 	)
 
 	// for managing all components
