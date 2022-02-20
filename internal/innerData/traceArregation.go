@@ -42,10 +42,10 @@ func (ta *TraceAggregation) CaculateLatency() []int64 {
 	return ta.latency
 }
 
-func (ta *TraceAggregation) Append(iddt *DataTrace) (bool, int, error) {
+func (ta *TraceAggregation) Append(iddt *DataTrace) (bool, error) {
 
 	if ta.timeout {
-		return false, 0, errors.New("timeout")
+		return false, errors.New("timeout")
 	}
 
 	ta.allLog = append(ta.allLog, iddt)
@@ -55,7 +55,7 @@ func (ta *TraceAggregation) Append(iddt *DataTrace) (bool, int, error) {
 		ta.timeout = false
 		ta.StreamID = iddt.Span.StreamID
 	}
-	return ta.complete, len(ta.allLog), nil
+	return ta.complete, nil
 }
 
 func (ta *TraceAggregation) SetTicker(duration time.Duration) {
