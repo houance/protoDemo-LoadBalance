@@ -11,7 +11,6 @@ import (
 	netcommon "houance/protoDemo-LoadBalance/internal/netCommon"
 	serverside "houance/protoDemo-LoadBalance/internal/serverSide"
 	"houance/protoDemo-LoadBalance/internal/trace"
-	"net"
 	"strconv"
 	"sync"
 
@@ -26,12 +25,6 @@ func StartAllComponent() {
 
 	// config
 	config, err := helper.ReadConf("../config.yaml")
-	if err != nil {
-		panic(err)
-	}
-
-	// dial trace server
-	con, err := net.Dial("tcp", "0.0.0.0:"+strconv.Itoa(config.N.TraceServerPort))
 	if err != nil {
 		panic(err)
 	}
@@ -63,22 +56,15 @@ func StartAllComponent() {
 	}
 	traceAggregationPool := &sync.Pool{
 		New: func() interface{} {
-			return &innerData.TraceAggregation{}
+			return innerData.NewTraceAggregation()
 		},
 	}
 
 	// all Map
 	addressChannelMap := make(map[string]chan *innerData.DataTransfer)
 	idChannelMap := make(map[uint32]chan *innerData.DataTransfer)
-
-	// helper
-	randomGenerator := helper.NewRandomGenerator(
-		2,
-		uint32(config.S.ConnectionChannelSize))
-	batchProcess := trace.NewBatchProcess(
-		config.T.BatchSize,
-		con,
-	)
+	traceIDMap := make(map[uint32]*innerData.TraceAggregation)
+	streamIDMap := make(map[uint32]*innerData.StreamLatency)
 
 	// for managing all components
 	g, ctx := errgroup.WithContext(context.Background())
@@ -99,6 +85,46 @@ func StartAllComponent() {
 		config.C.Check.Interval,
 		config.C.Check.Timeout,
 		config.C.Check.HttpHealthCheckUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	g.Go(func() error {
+		return trace.TraceServer(
+			logger,
+			ctx,
+			config.N.TraceServerPort,
+			traceChannel,
+			config.S.InfoChannelSize,
+			spanInfoPool,
+			prefixLengthPool,
+			dataTracePool,
+		)
+	})
+
+	g.Go(func() error {
+		return trace.ProcessHandler(
+			ctx,
+			logger,
+			traceChannel,
+			traceIDMap,
+			streamIDMap,
+			spanInfoPool,
+			prefixLengthPool,
+			dataTracePool,
+			traceAggregationPool,
+		)
+	})
+
+	// helper
+	randomGenerator := helper.NewRandomGenerator(
+		2,
+		uint32(config.S.ConnectionChannelSize))
+
+	batchProcess, err := trace.NewBatchProcess(
+		config.T.BatchSize,
+		config.N.IP+":"+strconv.Itoa(config.N.TraceServerPort),
+	)
 	if err != nil {
 		panic(err)
 	}

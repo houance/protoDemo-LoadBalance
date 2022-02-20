@@ -20,13 +20,19 @@ var (
 
 func NewBatchProcess(
 	maxSpan int,
-	con net.Conn,
-) *BatchProcess {
+	address string,
+) (*BatchProcess, error) {
+
+	con, err := net.Dial("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+
 	return &BatchProcess{
 		limit:       maxSpan,
 		con:         con,
 		buffer:      bytes.Buffer{},
-		fullChannel: make(chan bool, 2)}
+		fullChannel: make(chan bool, 2)}, nil
 }
 
 func (bp *BatchProcess) SendSpan(spanByte []byte) {

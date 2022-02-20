@@ -8,45 +8,54 @@ import (
 )
 
 type TraceAggregation struct {
-	StreamID    uint32
-	complete    bool
-	killChannel chan bool
-	timeout     bool
-	allLog      []*DataTrace
-	ticker      *time.Ticker
-	Latency     []int64
+	StreamID uint32
+	complete bool
+	done     chan bool
+	timeout  bool
+	allLog   []*DataTrace
+	ticker   *time.Ticker
+	latency  []int64
 }
 
-func (ta *TraceAggregation) CaculateLatency() {
+func NewTraceAggregation() *TraceAggregation {
+	return &TraceAggregation{
+		latency: make([]int64, 5),
+		done:    make(chan bool),
+	}
+}
+
+func (ta *TraceAggregation) CaculateLatency() []int64 {
 
 	sort.Sort(DataTraces(ta.allLog))
 
 	// client all latency
-	ta.Latency[0] = ta.allLog[0].Span.EndTime - ta.allLog[0].Span.StartTime
+	ta.latency[0] = ta.allLog[0].Span.EndTime - ta.allLog[0].Span.StartTime
 	// client send to lb latency
-	ta.Latency[1] = ta.allLog[1].Span.StartTime - ta.allLog[0].Span.StartTime
+	ta.latency[1] = ta.allLog[1].Span.StartTime - ta.allLog[0].Span.StartTime
 	// lb send to server latency
-	ta.Latency[2] = ta.allLog[2].Span.StartTime - ta.allLog[1].Span.EndTime
+	ta.latency[2] = ta.allLog[2].Span.StartTime - ta.allLog[1].Span.EndTime
 	// server send to lb latency
-	ta.Latency[3] = ta.allLog[3].Span.EndTime - ta.allLog[4].Span.StartTime
+	ta.latency[3] = ta.allLog[3].Span.StartTime - ta.allLog[2].Span.EndTime
 	// lb send to client latency
-	ta.Latency[4] = ta.allLog[4].Span.EndTime - ta.allLog[0].Span.EndTime
+	ta.latency[4] = ta.allLog[0].Span.EndTime - ta.allLog[3].Span.EndTime
+
+	return ta.latency
 }
 
-func (ta *TraceAggregation) Append(iddt *DataTrace) (bool, error) {
+func (ta *TraceAggregation) Append(iddt *DataTrace) (bool, int, error) {
 
 	if ta.timeout {
-		return false, errors.New("timeout")
+		return false, 0, errors.New("timeout")
 	}
 
 	ta.allLog = append(ta.allLog, iddt)
-	if iddt.Span.ParentID == 1 && len(ta.allLog) == 4 {
+	if len(ta.allLog) == 4 {
 		ta.complete = true
-		ta.killChannel <- true
+		ta.done <- true
 		ta.timeout = false
 		ta.StreamID = iddt.Span.StreamID
 	}
-	return ta.complete, nil
+	return ta.complete, len(ta.allLog), nil
 }
 
 func (ta *TraceAggregation) SetTicker(duration time.Duration) {
@@ -56,7 +65,7 @@ func (ta *TraceAggregation) SetTicker(duration time.Duration) {
 		case <-ta.ticker.C:
 			ta.timeout = true
 			break
-		case <-ta.killChannel:
+		case <-ta.done:
 			ta.ticker.Stop()
 			break
 		}

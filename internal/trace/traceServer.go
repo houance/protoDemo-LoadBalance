@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 func TraceServer(
@@ -30,13 +29,13 @@ func TraceServer(
 		con                 net.Conn
 		ls                  net.Listener
 		listenAddress       string = "0.0.0.0:" + strconv.Itoa(listenPort)
-		g                   *errgroup.Group
 	)
 
 	defer close(errsChannel)
 	defer close(acceptErrorsChannel)
 	defer close(connectionsChannel)
 
+	// listen
 	ls, err = net.Listen("tcp", listenAddress)
 	if err != nil {
 		logger.Error("Trace Server Listen Failed",
@@ -57,10 +56,6 @@ func TraceServer(
 	}
 	defer ls.Close()
 
-	go func() {
-		errsChannel <- g.Wait()
-	}()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -68,24 +63,24 @@ func TraceServer(
 			return ctx.Err()
 
 		case err = <-errsChannel:
-			logger.Info("MiddleWare Exit", zap.Error(err))
+			logger.Info("MiddleWare Client Exit", zap.Error(err))
 
 		case con = <-connectionsChannel:
-			f, err = binaryframer.NewBinaryFramer(con, 8, logger)
+			f, err = binaryframer.NewBinaryFramer(con, 1, logger)
 			if err != nil {
 				logger.Warn("Binary Framer Init Failed", zap.Error(err))
 				break
 			}
 
-			g.Go(func() error {
-				return Receiver(
+			go func() {
+				errsChannel <- Receiver(
 					f,
 					outChannel,
 					spanInfoPool,
 					prefixLengthPool,
 					dataTracePool,
 				)
-			})
+			}()
 
 			logger.Info("MiddleWare Connect, Start Trace Recv Goroutine")
 

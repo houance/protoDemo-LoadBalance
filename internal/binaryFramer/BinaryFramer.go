@@ -100,7 +100,7 @@ func (framer *BinaryFramer) RecvSpan(
 		return framer.recvError
 	}
 
-	return proto.Unmarshal(framer.recvSpanBuf, spanInfo)
+	return proto.Unmarshal(framer.recvSpanBuf[:int(prefixLength.Length)], spanInfo)
 }
 
 func (framer *BinaryFramer) SendHeader(header *message.Header) error {
